@@ -13,8 +13,8 @@ type AppLog = String
 newtype AppErr = NumberTooBig String
 newtype ConfigFileName = ConfigFileName String
 newtype ConfigFileContent = ConfigFileContent String
-type Number1 = Int
-type Number2 = Int
+type Number1 = Integer
+type Number2 = Integer
 
 type M = StateT AppState (ReaderT AppEnv (WriterT AppLog (ExceptT AppErr IO)))
 
@@ -33,7 +33,8 @@ parseConfigFileContent :: MonadError AppErr m => ConfigFileContent -> m Number1
 parseConfigFileContent (ConfigFileContent c) = do
   let num :: Either String Integer = readEither c
   case num of
-    Left _ -> AppErr
+    Left _ -> throwError $ NumberTooBig "number too big"
+    Right num -> return num
 
 getNumberFromEnv :: MonadReader AppEnv m => m Number2
 getNumberFromEnv = undefined
