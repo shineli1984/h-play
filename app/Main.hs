@@ -7,10 +7,10 @@ import Control.Monad.Except
 import Control.Monad.State
 import Text.Read
 
-data AppState
-data AppEnv
+type AppState = Integer
+type AppEnv = Integer
 type AppLog = String
-newtype AppErr = NumberTooBig String
+newtype AppErr = NotNumber String deriving (Show)
 newtype ConfigFileName = ConfigFileName String
 newtype ConfigFileContent = ConfigFileContent String
 type Number1 = Integer
@@ -33,25 +33,24 @@ parseConfigFileContent :: MonadError AppErr m => ConfigFileContent -> m Number1
 parseConfigFileContent (ConfigFileContent c) = do
   let num :: Either String Integer = readEither c
   case num of
-    Left _ -> throwError $ NumberTooBig "number too big"
+    Left e -> throwError $ NotNumber e
     Right num -> return num
 
 getNumberFromEnv :: MonadReader AppEnv m => m Number2
-getNumberFromEnv = undefined
+getNumberFromEnv = ask
 
-saveNumberToState :: (MonadState AppState m, Num a) => a -> m ()
-saveNumberToState = undefined
+saveNumberToState :: (MonadState AppState m) => AppState -> m ()
+saveNumberToState = put
 
-prog :: M ()
+prog :: M Integer
 prog = do
-  fileContent <- liftIO $ readConfigFile $ ConfigFileName ""
+  fileContent <- liftIO $ readConfigFile $ ConfigFileName "./app/numberFile"
   number1 <- parseConfigFileContent fileContent
-  -- number2 <- getNumberFromEnv
-  -- let number3 = number1 + number2
-  -- saveNumberToState number3
-
-  return ()
+  number2 <- getNumberFromEnv
+  let number3 = number1 + number2
+  saveNumberToState number3
+  return number3
 
 main = do
-  liftIO $ print "1" :: IO ()
-  return ()
+  a <- runExceptT (runWriterT (runReaderT (runStateT prog 1) 2))
+  return a
