@@ -20,9 +20,10 @@ newtype ConfigFileContent = ConfigFileContent String
 type Number1 = Integer
 type Number2 = Integer
 
-type M = StateT AppState (ReaderT AppEnv (WriterT AppLog (ExceptT AppErr IO)))
+type M = ExceptT AppErr (StateT AppState (ReaderT AppEnv (WriterT AppLog IO)))
 
 -- safely release resource using ResourceT?
+-- use lens
 
 readConfigFile :: ConfigFileName -> IO ConfigFileContent
 readConfigFile (ConfigFileName name) = ConfigFileContent <$> readFile name
@@ -54,5 +55,5 @@ prog = do
   return number3
 
 main = do
-  a <- runExceptT (runWriterT (runReaderT (runStateT prog AppState{totalNumber=0}) AppEnv{number1=2}))
+  a <- runWriterT (runReaderT (runStateT (runExceptT prog) AppState{totalNumber=0}) AppEnv{number1=2})
   return a
