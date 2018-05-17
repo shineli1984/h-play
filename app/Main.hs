@@ -7,8 +7,12 @@ import Control.Monad.Except
 import Control.Monad.State
 import Text.Read
 
-type AppState = Integer
-type AppEnv = Integer
+data AppState = AppState {
+  totalNumber :: Integer
+} deriving (Show)
+data AppEnv = AppEnv {
+  number1 :: Number1
+} deriving (Show)
 type AppLog = String
 newtype AppErr = NotNumber String deriving (Show)
 newtype ConfigFileName = ConfigFileName String
@@ -18,13 +22,7 @@ type Number2 = Integer
 
 type M = StateT AppState (ReaderT AppEnv (WriterT AppLog (ExceptT AppErr IO)))
 
--- read a file from local file system
--- read a number from the file
--- if no number than exception
--- log the number
--- use app env to provide another number
--- add these 2 numbers together to give a third number
--- store the third number in the state
+-- safely release resource using ResourceT?
 
 readConfigFile :: ConfigFileName -> IO ConfigFileContent
 readConfigFile (ConfigFileName name) = ConfigFileContent <$> readFile name
@@ -37,20 +35,24 @@ parseConfigFileContent (ConfigFileContent c) = do
     Right num -> return num
 
 getNumberFromEnv :: MonadReader AppEnv m => m Number2
-getNumberFromEnv = ask
+getNumberFromEnv = number1 <$> ask
 
-saveNumberToState :: (MonadState AppState m) => AppState -> m ()
-saveNumberToState = put
+saveNumberToState :: (MonadState AppState m) => Integer -> m ()
+saveNumberToState n = put AppState{totalNumber=n}
 
 prog :: M Integer
 prog = do
-  fileContent <- liftIO $ readConfigFile $ ConfigFileName "./app/numberFile"
+  fileContent@(ConfigFileContent fc) <- liftIO $ readConfigFile $ ConfigFileName "./app/numberFile"
+  tell $ "fileContent: " ++ fc
   number1 <- parseConfigFileContent fileContent
+  tell $ "number1: " ++ show number1 ++ "\n"
   number2 <- getNumberFromEnv
+  tell $ "number2: " ++ show number2 ++ "\n"
   let number3 = number1 + number2
   saveNumberToState number3
+  tell $ show number3 ++ " is the result"
   return number3
 
 main = do
-  a <- runExceptT (runWriterT (runReaderT (runStateT prog 1) 2))
+  a <- runExceptT (runWriterT (runReaderT (runStateT prog AppState{totalNumber=0}) AppEnv{number1=2}))
   return a
