@@ -24,6 +24,7 @@ dependencies:
 - extensible-effects >= 1.11
 - mtl >= 2.2.1
 - containers >= 0.5.7.1
+- resourcet >= 1.1.9
 
 library:
   source-dirs: src

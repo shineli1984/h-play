@@ -1,11 +1,13 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, ScopedTypeVariables, BangPatterns #-}
 module Main where
 
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Control.Monad.Except
 import Control.Monad.State
+import Control.Monad.Trans.Resource
 import Text.Read
+import System.IO
 
 data AppState = AppState {
   totalNumber :: Integer
@@ -20,40 +22,59 @@ newtype ConfigFileContent = ConfigFileContent String
 type Number1 = Integer
 type Number2 = Integer
 
-type M = ExceptT AppErr (StateT AppState (ReaderT AppEnv (WriterT AppLog IO)))
+type M = ExceptT AppErr (StateT AppState (ReaderT AppEnv (WriterT AppLog (ResourceT IO))))
 
--- safely release resource using ResourceT?
 -- use lens
+-- quickcheck
+-- conduit?
 
-readConfigFile :: ConfigFileName -> IO ConfigFileContent
-readConfigFile (ConfigFileName name) = ConfigFileContent <$> readFile name
+readConfigFile :: (MonadResource m, MonadWriter AppLog m) => ConfigFileName -> m ConfigFileContent
+readConfigFile (ConfigFileName name) = do
+  (releaseKey, resource) <- allocate
+      (openFile name ReadMode)
+      (\h -> hClose h >> print "freeing resource")
+  contents <- liftIO $ do
+    c <- hGetContents resource
+    length c `seq` return c -- hack to make this strict
+  release releaseKey
+  tell $ "fileContent: " ++ contents
+  return $ ConfigFileContent contents
 
-parseConfigFileContent :: MonadError AppErr m => ConfigFileContent -> m Number1
+
+parseConfigFileContent :: (MonadError AppErr m, MonadWriter AppLog m) => ConfigFileContent -> m Number1
 parseConfigFileContent (ConfigFileContent c) = do
   let num :: Either String Integer = readEither c
   case num of
     Left e -> throwError $ NotNumber e
-    Right num -> return num
+    Right num -> do
+      tell $ "number1: " ++ show num ++ "\n"
+      return num
 
-getNumberFromEnv :: MonadReader AppEnv m => m Number2
-getNumberFromEnv = number1 <$> ask
+getNumberFromEnv :: (MonadReader AppEnv m, MonadWriter AppLog m) => m Number2
+getNumberFromEnv = do
+  num <- number1 <$> ask
+  tell $ "number2: " ++ show num ++ "\n"
+  return num
 
-saveNumberToState :: (MonadState AppState m) => Integer -> m ()
-saveNumberToState n = put AppState{totalNumber=n}
+saveNumberToState :: (MonadState AppState m, MonadWriter AppLog m) => Integer -> m ()
+saveNumberToState n = do
+  tell $ show n ++ " is the result"
+  put AppState{totalNumber=n}
 
 prog :: M Integer
 prog = do
-  fileContent@(ConfigFileContent fc) <- liftIO $ readConfigFile $ ConfigFileName "./app/numberFile"
-  tell $ "fileContent: " ++ fc
+  fileContent <- readConfigFile $ ConfigFileName "./app/numberFile"
   number1 <- parseConfigFileContent fileContent
-  tell $ "number1: " ++ show number1 ++ "\n"
   number2 <- getNumberFromEnv
-  tell $ "number2: " ++ show number2 ++ "\n"
   let number3 = number1 + number2
   saveNumberToState number3
-  tell $ show number3 ++ " is the result"
   return number3
 
-main = do
-  a <- runWriterT (runReaderT (runStateT (runExceptT prog) AppState{totalNumber=0}) AppEnv{number1=2})
-  return a
+runProg =
+  runResourceT .
+  runWriterT .
+  (\p -> runReaderT p AppEnv{number1=2}) .
+  (\p -> runStateT p AppState{totalNumber=0}) .
+  runExceptT
+
+main = runProg prog
