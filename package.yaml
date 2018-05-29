@@ -25,6 +25,7 @@ dependencies:
 - mtl >= 2.2.1
 - containers >= 0.5.7.1
 - resourcet >= 1.1.9
+- lens >= 4
 
 library:
   source-dirs: src

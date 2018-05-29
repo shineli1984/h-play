@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, ScopedTypeVariables, BangPatterns #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, ScopedTypeVariables, TemplateHaskell #-}
 module Main where
 
 import Control.Monad.Reader
@@ -6,15 +6,18 @@ import Control.Monad.Writer
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Trans.Resource
-import Text.Read
+import Text.Read hiding (get)
 import System.IO
+import Control.Lens
 
 data AppState = AppState {
-  totalNumber :: Integer
+  _totalNumber :: Integer
 } deriving (Show)
+
 data AppEnv = AppEnv {
-  number1 :: Number1
+  _number1 :: Number1
 } deriving (Show)
+
 type AppLog = String
 newtype AppErr = NotNumber String deriving (Show)
 newtype ConfigFileName = ConfigFileName String
@@ -24,9 +27,13 @@ type Number2 = Integer
 
 type M = ExceptT AppErr (StateT AppState (ReaderT AppEnv (WriterT AppLog (ResourceT IO))))
 
--- use lens
+makeLenses ''AppEnv
+makeLenses ''AppState
+
 -- quickcheck
 -- conduit?
+-- Haddock
+-- nixOS
 
 readConfigFile :: (MonadResource m, MonadWriter AppLog m) => ConfigFileName -> m ConfigFileContent
 readConfigFile (ConfigFileName name) = do
@@ -52,14 +59,15 @@ parseConfigFileContent (ConfigFileContent c) = do
 
 getNumberFromEnv :: (MonadReader AppEnv m, MonadWriter AppLog m) => m Number2
 getNumberFromEnv = do
-  num <- number1 <$> ask
+  num <- view number1 <$> ask
   tell $ "number2: " ++ show num ++ "\n"
   return num
 
 saveNumberToState :: (MonadState AppState m, MonadWriter AppLog m) => Integer -> m ()
 saveNumberToState n = do
   tell $ show n ++ " is the result"
-  put AppState{totalNumber=n}
+  totalNumber .= n
+
 
 prog :: M Integer
 prog = do
@@ -73,8 +81,8 @@ prog = do
 runProg =
   runResourceT .
   runWriterT .
-  (\p -> runReaderT p AppEnv{number1=2}) .
-  (\p -> runStateT p AppState{totalNumber=0}) .
+  (\p -> runReaderT p AppEnv{_number1=2}) .
+  (\p -> runStateT p AppState{_totalNumber=0}) .
   runExceptT
 
 main = runProg prog
