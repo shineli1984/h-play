@@ -30,11 +30,6 @@ type M = ExceptT AppErr (StateT AppState (ReaderT AppEnv (WriterT AppLog (Resour
 makeLenses ''AppEnv
 makeLenses ''AppState
 
--- quickcheck
--- conduit?
--- Haddock
--- nixOS
-
 readConfigFile :: (MonadResource m, MonadWriter AppLog m) => ConfigFileName -> m ConfigFileContent
 readConfigFile (ConfigFileName name) = do
   (releaseKey, resource) <- allocate
