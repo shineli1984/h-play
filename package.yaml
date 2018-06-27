@@ -45,6 +45,16 @@ executables:
     - ext-effects
 
 tests:
+  doctest:
+    main:                Doctests.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - ext-effects
+    - doctest
   ext-effects-test:
     main:                Spec.hs
     source-dirs:         test
