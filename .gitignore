@@ -1,3 +1,5 @@
 .stack-work/
 ext-effects.cabal
 *~
+
+.idea
