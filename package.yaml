@@ -21,7 +21,7 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
-- extensible-effects >= 1.11
+- extensible-effects >= 3.0.0
 - mtl >= 2.2.1
 - containers >= 0.5.7.1
 - resourcet >= 1.1.9
